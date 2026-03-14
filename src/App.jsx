@@ -6,6 +6,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState(null)
 
+
   // Mock AI processing function - generates demo responses
   const mockAIProcess = (text) => {
     return new Promise((resolve) => {
