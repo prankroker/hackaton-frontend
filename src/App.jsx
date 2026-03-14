@@ -1,242 +1,612 @@
-import { useState, useCallback, useRef } from 'react'
-import PhotoUploader from "./PhotoUploader.jsx";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Sparkles,
+  Upload,
+  Wand2,
+  ImageIcon,
+  ArrowRight,
+  Sun,
+  Trash2,
+  Camera,
+  Grid3x3,
+  Layers,
+  Download,
+  Zap,
+  Check,
+  Menu
+} from 'lucide-react';
+import { BeforeAfterSlider } from './components/before-after-slider';
 
-function App() {
-  const [input, setInput] = useState('')
-  const [imageFile, setImageFile] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const abortControllerRef = useRef(null)
+export default function LandingPage() {
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const fetchAIGeneration = useCallback(async (prompt, file) => {
-    abortControllerRef.current = new AbortController()
-    const signal = abortControllerRef.current.signal
-
-    try {
-      // Створюємо FormData згідно зі структурою Swagger
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('prompt', prompt)
-
-      const generateResponse = await fetch('http://localhost:8080/enchance', {
-        method: 'POST',
-        // Content-Type НЕ ВКАЗУЄМО! Браузер сам додасть 'multipart/form-data; boundary=...'
-        body: formData,
-        signal,
-      })
-
-      if (!generateResponse.ok) {
-        throw new Error(`Generation request failed: ${generateResponse.status}`)
-      }
-
-      const generateData = await generateResponse.json()
-      const taskId = generateData.message
-
-      // Polling status (залишаємо вашу логіку очікування)
-      let isComplete = false
-      const maxAttempts = 30
-      let attempts = 0
-      const pollInterval = 2000
-
-      while (!isComplete && attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, pollInterval))
-
-        const statusResponse = await fetch(`http://localhost:8080/status/${taskId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal,
-        })
-
-        if (!statusResponse.ok) {
-          throw new Error(`Status check failed: ${statusResponse.status}`)
-        }
-
-        const statusData = await statusResponse.json()
-
-        if (statusData.message === 'COMPLETED') {
-          isComplete = true
-        } else if (statusData.message === 'IN_PROGRESS') {
-          attempts++
-          continue
-        } else {
-          throw new Error(`Unexpected status: ${statusData.message}`)
-        }
-      }
-
-      if (!isComplete) {
-        throw new Error('Generation timeout: task did not complete in time')
-      }
-
-      const resultResponse = await fetch(`http://localhost:8080/result/${taskId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal,
-      })
-
-      if (!resultResponse.ok) {
-        throw new Error(`Result fetch failed: ${resultResponse.status}`)
-      }
-
-      return await resultResponse.json()
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        throw new Error('Request was cancelled')
-      }
-      throw new Error(`Failed to fetch AI response: ${err.message}`)
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [])
+    setMobileMenuOpen(false);
+  };
 
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault()
+  const categories = ['all', 'clothing', 'sneakers', 'bags', 'accessories'];
 
-    if (!input.trim()) {
-      setError("Будь ласка, введіть промпт.")
-      return
-    }
+  const galleryItems = [
+    {
+      category: 'sneakers',
+      before: 'https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800',
+      after: 'https://images.unsplash.com/photo-1756707235708-01aa79b8bf51?w=800',
+    },
+    {
+      category: 'bags',
+      before: 'https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800',
+      after: 'https://images.unsplash.com/photo-1548175604-bc2d52e2271f?w=800',
+    },
+    {
+      category: 'clothing',
+      before: 'https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800',
+      after: 'https://images.unsplash.com/photo-1620442771385-3f531ffdb9ca?w=800',
+    },
+    {
+      category: 'accessories',
+      before: 'https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800',
+      after: 'https://images.unsplash.com/photo-1733908511568-3abc819b21b5?w=800',
+    },
+  ];
 
-    if (!imageFile) {
-      setError("Будь ласка, завантажте фото.")
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const data = await fetchAIGeneration(input, imageFile)
-      setResult(data)
-      setInput('')
-      // Якщо після успішного результату хочете очистити фото:
-      // setImageFile(null) 
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [input, imageFile, fetchAIGeneration])
+  const filteredItems = activeCategory === 'all'
+      ? galleryItems
+      : galleryItems.filter(item => item.category === activeCategory);
 
   return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-white mb-3">SellShot</h1>
-            <p className="text-lg text-purple-200">
-              Transform your ideas with AI
-            </p>
-          </div>
+      <div className="min-h-screen bg-white">
+        {/* Header */}
+        <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-gray-200 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6" />
+              <span className="font-semibold text-lg">SellShot</span>
+            </div>
 
-          {/* Передаємо callbacks для керування файлом */}
-          <PhotoUploader
-              onImageSelect={(file) => setImageFile(file)}
-              onImageRemove={() => setImageFile(null)}
-              disabled={isLoading}
-          />
-
-          {/* Main Form Card */}
-          <div className="bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-purple-500/20 mb-8">
-            <form onSubmit={handleSubmit}>
-              <div className="mb-6">
-                <label htmlFor="textInput" className="block text-sm font-semibold text-gray-200 mb-3">
-                  Describe what you want
-                </label>
-                <textarea
-                    id="textInput"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Enter your text or describe what you'd like the AI to process..."
-                    className="w-full h-32 px-4 py-3 bg-slate-700/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
-                    disabled={isLoading}
-                />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                  type="submit"
-                  disabled={isLoading || !imageFile || !input.trim()}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </>
-                ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8m0 8l-9-2m9 2l9-2m-9-8l9 2m-9-2l-9 2" />
-                      </svg>
-                      Submit to AI
-                    </>
-                )}
+            <nav className="hidden md:flex items-center gap-8">
+              <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-black transition">
+                Features
               </button>
-            </form>
+              <button onClick={() => scrollToSection('use-cases')} className="text-gray-600 hover:text-black transition">
+                Use cases
+              </button>
+              <button onClick={() => scrollToSection('gallery')} className="text-gray-600 hover:text-black transition">
+                Gallery
+              </button>
+              <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-black transition">
+                Pricing
+              </button>
+              <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-black transition">
+                About
+              </button>
+            </nav>
+
+            <Link to="/login" className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition">
+              Get started
+            </Link>
+
+            {/* Mobile Menu Button */}
+            <button
+                className="md:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Error Card */}
-          {error && (
-              <div className="bg-red-900/50 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-red-500/20 mb-8">
-                <h2 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  Error
-                </h2>
-                <p className="text-red-200">{error}</p>
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+              <div className="md:hidden bg-white shadow-lg">
+                <nav className="flex flex-col items-center gap-4 px-6 py-4">
+                  <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-black transition">
+                    Features
+                  </button>
+                  <button onClick={() => scrollToSection('use-cases')} className="text-gray-600 hover:text-black transition">
+                    Use cases
+                  </button>
+                  <button onClick={() => scrollToSection('gallery')} className="text-gray-600 hover:text-black transition">
+                    Gallery
+                  </button>
+                  <button onClick={() => scrollToSection('pricing')} className="text-gray-600 hover:text-black transition">
+                    Pricing
+                  </button>
+                  <button onClick={() => scrollToSection('about')} className="text-gray-600 hover:text-black transition">
+                    About
+                  </button>
+                </nav>
               </div>
           )}
+        </header>
 
-          {/* Result Card */}
-          {result && (
-              <div className="bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-green-500/20 mb-8">
-                <h2 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Result
-                </h2>
-                <div className="space-y-4">
-                  {result.description && (
-                      <p className="text-gray-200">{result.description}</p>
-                  )}
+        {/* Hero Section */}
+        <section className="pt-32 pb-20 px-6">
+          <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <h1 className="text-5xl md:text-6xl mb-6">
+                Turn messy product photos into images that sell
+              </h1>
+              <p className="text-xl text-gray-600 mb-8">
+                Fix lighting, clean backgrounds, and generate multiple marketplace-ready angles.
+                Perfect for resellers, marketplace sellers, and ecommerce stores.
+              </p>
 
-                  {result.images && result.images.length > 0 && (
-                      <div className="space-y-4">
-                        {result.images.map((image, index) => (
-                            <div key={index} className="bg-slate-700/30 rounded-lg p-4 border border-green-500/10 shadow-inner">
-                              <p className="text-gray-400 text-xs mb-3 truncate" title={image.file_name}>
-                                {image.file_name}
-                              </p>
-                              <div className="flex justify-center">
-                                <img
-                                    src={image.url}
-                                    alt={image.file_name || 'Згенероване зображення'}
-                                    className="max-w-full h-auto max-h-96 rounded-md border border-slate-600 shadow-lg object-contain"
-                                />
-                              </div>
-                            </div>
-                        ))}
-                      </div>
-                  )}
+              <div className="flex flex-wrap gap-4 mb-12">
+                <Link to="/login" className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition inline-flex items-center gap-2">
+                  Start generating
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <button
+                    onClick={() => scrollToSection('gallery')}
+                    className="border border-black px-8 py-3 rounded-full hover:bg-gray-50 transition"
+                >
+                  View examples
+                </button>
+              </div>
+
+              {/* Social Proof */}
+              <div className="border-t border-gray-200 pt-6">
+                <p className="text-sm text-gray-500 mb-4">Trusted by thousands of resellers and marketplace sellers</p>
+                <div className="flex flex-wrap items-center gap-6 text-gray-400 text-sm">
+                  <span>OLX</span>
+                  <span>Facebook Marketplace</span>
+                  <span>Vinted</span>
+                  <span>Depop</span>
+                  <span>Etsy</span>
+                  <span>eBay</span>
+                  <span>Shopify</span>
                 </div>
               </div>
-          )}
+            </div>
 
-          {/* Info Section */}
-          <div className="mt-8 text-center text-gray-400 text-sm">
-            <p>Your text and image will be securely sent to the AI for processing</p>
+            <div className="relative h-[500px]">
+              <BeforeAfterSlider
+                  beforeImage="https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800"
+                  afterImage="https://images.unsplash.com/photo-1756707235708-01aa79b8bf51?w=800"
+              />
+            </div>
           </div>
-        </div>
-      </div>
-  )
-}
+        </section>
 
-export default App
+        {/* Problem Section */}
+        <section className="py-20 px-6 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-16">Your product deserves better photos</h2>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="bg-white p-8 rounded-2xl">
+                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-4">
+                  <Sun className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl mb-2">Bad lighting</h3>
+                <p className="text-gray-600">
+                  Poor lighting makes products look unprofessional and reduces buyer trust
+                </p>
+              </div>
+
+              <div className="bg-white p-8 rounded-2xl">
+                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-4">
+                  <Trash2 className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl mb-2">Messy backgrounds</h3>
+                <p className="text-gray-600">
+                  Cluttered backgrounds distract from your product and hurt conversions
+                </p>
+              </div>
+
+              <div className="bg-white p-8 rounded-2xl">
+                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-4">
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl mb-2">Only one photo</h3>
+                <p className="text-gray-600">
+                  Limited angles reduce buyer confidence and lead to more questions
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* How it Works */}
+        <section className="py-20 px-6">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-16">Create better product photos in seconds</h2>
+
+            <div className="grid md:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-8 h-8" />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mx-auto mb-4 text-sm">1</div>
+                <h3 className="text-lg mb-2">Upload your photo</h3>
+                <p className="text-gray-600 text-sm">
+                  Drop any product photo, even with messy backgrounds
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Wand2 className="w-8 h-8" />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mx-auto mb-4 text-sm">2</div>
+                <h3 className="text-lg mb-2">Describe the style you want</h3>
+                <p className="text-gray-600 text-sm">
+                  Tell our AI the look you're going for
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mx-auto mb-4 text-sm">3</div>
+                <h3 className="text-lg mb-2">AI enhances the image</h3>
+                <p className="text-gray-600 text-sm">
+                  Watch as lighting, background, and quality improve
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Grid3x3 className="w-8 h-8" />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center mx-auto mb-4 text-sm">4</div>
+                <h3 className="text-lg mb-2">Generate additional angles</h3>
+                <p className="text-gray-600 text-sm">
+                  Create multiple views for carousel listings
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Gallery */}
+        <section id="gallery" className="py-20 px-6 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-4">See how one photo becomes a full product set</h2>
+            <p className="text-center text-gray-600 mb-12">From a single messy photo to marketplace-ready carousel</p>
+
+            {/* Transformation Demo Card */}
+            <div className="bg-white rounded-3xl p-8 md:p-12 max-w-6xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Left Column: Original Photo */}
+                <div>
+                  <p className="text-sm text-gray-500 mb-3">Original</p>
+                  <div className="relative rounded-2xl overflow-hidden">
+                    <img
+                        src="https://images.unsplash.com/photo-1573920265653-5ba7e5bfde9a?w=800"
+                        alt="Original messy product photo"
+                        className="w-full aspect-square object-cover"
+                    />
+                    <div className="absolute top-4 left-4 bg-black/80 text-white px-3 py-1.5 rounded-full text-xs">
+                      Bad lighting • Messy background
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Generated Result with Angles */}
+                <div>
+                  <p className="text-sm text-gray-500 mb-3">Generated result with Angles</p>
+                  <div className="flex gap-3 h-[400px]">
+                    {/* Large Hero Image */}
+                    <div className="flex-1 relative rounded-2xl overflow-hidden">
+                      <img
+                          src="https://images.unsplash.com/photo-1756707235708-01aa79b8bf51?w=800"
+                          alt="AI enhanced product photo"
+                          className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-4 right-4 bg-black text-white px-3 py-1.5 rounded-full text-xs">
+                        Main photo
+                      </div>
+                    </div>
+
+                    {/* Vertical Stack of 4 Angle Thumbnails */}
+                    <div className="flex flex-col gap-3 w-24">
+                      <div className="flex-1 rounded-xl overflow-hidden">
+                        <img
+                            src="https://images.unsplash.com/photo-1548175604-bc2d52e2271f?w=400"
+                            alt="Generated angle 1"
+                            className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 rounded-xl overflow-hidden">
+                        <img
+                            src="https://images.unsplash.com/photo-1703034390224-f5f0a204abc7?w=400"
+                            alt="Generated angle 2"
+                            className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 rounded-xl overflow-hidden">
+                        <img
+                            src="https://images.unsplash.com/photo-1764698192457-c7cb840ecfa2?w=400"
+                            alt="Generated angle 3"
+                            className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 rounded-xl overflow-hidden">
+                        <img
+                            src="https://images.unsplash.com/photo-1625860191460-10a66c7384fb?w=400"
+                            alt="Generated angle 4"
+                            className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Stats */}
+              <div className="mt-12 pt-8 border-t border-gray-200 grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-3xl mb-1">1</div>
+                  <div className="text-sm text-gray-600">Photo uploaded</div>
+                </div>
+                <div>
+                  <div className="text-3xl mb-1">5</div>
+                  <div className="text-sm text-gray-600">Images generated</div>
+                </div>
+                <div>
+                  <div className="text-3xl mb-1">30s</div>
+                  <div className="text-sm text-gray-600">Processing time</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Use Cases */}
+        <section id="use-cases" className="py-20 px-6">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-16">Built for sellers</h2>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              <div className="bg-gray-50 p-8 rounded-2xl">
+                <h3 className="text-2xl mb-3">Small ecommerce</h3>
+                <p className="text-gray-600 mb-4">
+                  Professional product photography for Etsy and Shopify stores without the studio costs.
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Consistent brand look
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Studio-quality results
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Scale product photography
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-gray-50 p-8 rounded-2xl">
+                <h3 className="text-2xl mb-3">Dropshippers</h3>
+                <p className="text-gray-600 mb-4">
+                  Transform supplier photos into unique product images that help you stand out from competitors.
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Customize supplier images
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Create unique variations
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Improve conversion rates
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="py-20 px-6 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-16">Everything you need to sell better</h2>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl">
+                <Sparkles className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Realistic enhancement</h3>
+                <p className="text-gray-600 text-sm">
+                  AI improvements that look natural, not over-processed
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl">
+                <ImageIcon className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Marketplace-ready photos</h3>
+                <p className="text-gray-600 text-sm">
+                  Optimized for OLX, Vinted, eBay, and more
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl">
+                <Grid3x3 className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Generate multiple angles</h3>
+                <p className="text-gray-600 text-sm">
+                  Create different views from a single photo
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl">
+                <Layers className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Batch processing</h3>
+                <p className="text-gray-600 text-sm">
+                  Process multiple products at once to save time
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl">
+                <Wand2 className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Prompt control</h3>
+                <p className="text-gray-600 text-sm">
+                  Describe exactly the style and look you want
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl">
+                <Download className="w-8 h-8 mb-3" />
+                <h3 className="text-lg mb-2">Export carousel</h3>
+                <p className="text-gray-600 text-sm">
+                  Download all images ready for multi-photo listings
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="py-20 px-6">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl text-center mb-4">Simple pricing for sellers</h2>
+            <p className="text-center text-gray-600 mb-16">Start free, upgrade as you grow</p>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              <div className="border border-gray-200 p-8 rounded-2xl">
+                <h3 className="text-2xl mb-2">Starter</h3>
+                <div className="mb-6">
+                  <span className="text-4xl">$0</span>
+                  <span className="text-gray-600">/month</span>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    10 images per month
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Basic enhancements
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Standard quality
+                  </li>
+                </ul>
+                <Link to="/dashboard" className="block w-full text-center border border-black px-6 py-3 rounded-full hover:bg-gray-50 transition">
+                  Get started
+                </Link>
+              </div>
+
+              <div className="border-2 border-black p-8 rounded-2xl relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-1 rounded-full text-sm">
+                  Popular
+                </div>
+                <h3 className="text-2xl mb-2">Pro</h3>
+                <div className="mb-6">
+                  <span className="text-4xl">$29</span>
+                  <span className="text-gray-600">/month</span>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Unlimited images
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Advanced AI enhancements
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Generate multiple angles
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Batch processing
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-5 h-5" />
+                    Priority support
+                  </li>
+                </ul>
+                <Link to="/dashboard" className="block w-full text-center bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800 transition">
+                  Start Pro trial
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="py-20 px-6 bg-black text-white">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl mb-6">Start improving your product photos today</h2>
+            <p className="text-xl text-gray-300 mb-8">
+              Join thousands of sellers creating marketplace-ready images with AI
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link to="/login" className="bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition inline-flex items-center gap-2">
+                Start generating
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                  onClick={() => scrollToSection('gallery')}
+                  className="border border-white px-8 py-3 rounded-full hover:bg-white/10 transition"
+              >
+                View examples
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer id="about" className="py-12 px-6 bg-white border-t border-gray-200">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid md:grid-cols-4 gap-8 mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="font-semibold">SellShot</span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Turn messy product photos into marketplace-ready images with AI
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-3">Product</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><button onClick={() => scrollToSection('features')}>Features</button></li>
+                  <li><button onClick={() => scrollToSection('use-cases')}>Use cases</button></li>
+                  <li><button onClick={() => scrollToSection('gallery')}>Gallery</button></li>
+                  <li><button onClick={() => scrollToSection('pricing')}>Pricing</button></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-3">Company</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><button onClick={() => scrollToSection('about')}>About</button></li>
+                  <li><a href="#">Blog</a></li>
+                  <li><a href="#">Contact</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-3">Legal</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><a href="#">Privacy</a></li>
+                  <li><a href="#">Terms</a></li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-8 text-center text-sm text-gray-600">
+              © 2026 SellShot. All rights reserved.
+            </div>
+          </div>
+        </footer>
+      </div>
+  );
+}
