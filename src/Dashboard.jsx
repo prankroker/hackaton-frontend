@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom'; // Замініть на 'react-router', якщо використовуєте іншу версію
+import { Link } from 'react-router-dom';
 import {
     Sparkles,
     Upload,
@@ -13,24 +13,20 @@ import {
 } from 'lucide-react';
 
 function App() {
-    // === ВАША ОРИГІНАЛЬНА ЛОГІКА (API STATES) ===
+    
     const [input, setInput] = useState('');
     const [imageFile, setImageFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const abortControllerRef = useRef(null);
-
-    // === ВІЗУАЛЬНІ СТАНІ З DASHBOARD ===
     const [previewUrl, setPreviewUrl] = useState(null);
     const [activeNav, setActiveNav] = useState('generate');
     const [includeModel, setIncludeModel] = useState(false);
     const [hoveredImageIndex, setHoveredImageIndex] = useState(null);
-
-    // Gallery state for saved image sets
     const [savedImageSets, setSavedImageSets] = useState([]);
 
-    // === ВАША ОРИГІНАЛЬНА ЛОГІКА ЗАПИТУ ===
+    
     const fetchAIGeneration = useCallback(async (prompt, file) => {
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
@@ -133,7 +129,6 @@ function App() {
         }
     }, [input, imageFile, fetchAIGeneration]);
 
-    // === ЛОГІКА DASHBOARD (Файли, Завантаження, Галерея) ===
     const processFile = (file) => {
         setImageFile(file);
         const reader = new FileReader();
@@ -164,7 +159,6 @@ function App() {
     };
 
     const startNewGeneration = () => {
-        // Зберігаємо поточний результат в галерею
         if (result?.images?.length > 0) {
             const heroImage = result.images[0].url;
             const additionalImages = result.images.slice(1).map(img => img.url);
@@ -205,7 +199,6 @@ function App() {
         });
     };
 
-    // Отримання зображень з API результату
     const heroImage = result?.images?.[0]?.url;
     const additionalImages = result?.images?.slice(1) || [];
 
